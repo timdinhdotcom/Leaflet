@@ -10,9 +10,9 @@
  * ```js
  * // create a red polyline from an array of LatLng points
  * var latlngs = [
- * 	[-122.68, 45.51],
- * 	[-122.43, 37.77],
- * 	[-118.2, 34.04]
+ * 	[45.51, -122.68],
+ * 	[37.77, -122.43],
+ * 	[34.04, -118.2]
  * ];
  *
  * var polyline = L.polyline(latlngs, {color: 'red'}).addTo(map);
@@ -26,12 +26,12 @@
  * ```js
  * // create a red polyline from an array of arrays of LatLng points
  * var latlngs = [
- * 	[[-122.68, 45.51],
- * 	 [-122.43, 37.77],
- * 	 [-118.2, 34.04]],
- * 	[[-73.91, 40.78],
- * 	 [-87.62, 41.83],
- * 	 [-96.72, 32.76]]
+ * 	[[45.51, -122.68],
+ * 	 [37.77, -122.43],
+ * 	 [34.04, -118.2]],
+ * 	[[40.78, -73.91],
+ * 	 [41.83, -87.62],
+ * 	 [32.76, -96.72]]
  * ];
  * ```
  */
@@ -105,6 +105,11 @@ L.Polyline = L.Path.extend({
 	// @method getCenter(): LatLng
 	// Returns the center ([centroid](http://en.wikipedia.org/wiki/Centroid)) of the polyline.
 	getCenter: function () {
+		// throws error when not yet added to map as this center calculation requires projected coordinates
+		if (!this._map) {
+			throw new Error('Must add layer to map before using getCenter()');
+		}
+
 		var i, halfDist, segDist, dist, p1, p2, ratio,
 		    points = this._rings[0],
 		    len = points.length;

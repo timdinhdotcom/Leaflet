@@ -31,7 +31,11 @@ L.Layer = L.Evented.extend({
 		// @option pane: String = 'overlayPane'
 		// By default the layer will be added to the map's [overlay pane](#map-overlaypane). Overriding this option will cause the layer to be placed on another pane by default.
 		pane: 'overlayPane',
-		nonBubblingEvents: []  // Array of events that should not be bubbled to DOM parents (like the map)
+		nonBubblingEvents: [],  // Array of events that should not be bubbled to DOM parents (like the map),
+
+		// @option attribution: String = null
+		// String to be shown in the attribution control, describes the layer data, e.g. "© Mapbox".
+		attribution: null,
 	},
 
 	/* @section
@@ -76,6 +80,12 @@ L.Layer = L.Evented.extend({
 		return this;
 	},
 
+	// @method getAttribution: String
+	// Used by the `attribution control`, returns the [attribution option](#gridlayer-attribution).
+	getAttribution: function () {
+		return this.options.attribution;
+	},
+
 	_layerAdd: function (e) {
 		var map = e.target;
 
@@ -86,13 +96,17 @@ L.Layer = L.Evented.extend({
 		this._zoomAnimated = map._zoomAnimated;
 
 		if (this.getEvents) {
-			map.on(this.getEvents(), this);
+			var events = this.getEvents();
+			map.on(events, this);
+			this.once('remove', function () {
+				map.off(events, this);
+			}, this);
 		}
 
 		this.onAdd(map);
 
-		if (this.getAttribution && this._map.attributionControl) {
-			this._map.attributionControl.addAttribution(this.getAttribution());
+		if (this.getAttribution && map.attributionControl) {
+			map.attributionControl.addAttribution(this.getAttribution());
 		}
 
 		this.fire('add');
@@ -165,10 +179,6 @@ L.Map.include({
 
 		if (layer.getAttribution && this.attributionControl) {
 			this.attributionControl.removeAttribution(layer.getAttribution());
-		}
-
-		if (layer.getEvents) {
-			this.off(layer.getEvents(), layer);
 		}
 
 		delete this._layers[id];
@@ -249,6 +259,13 @@ L.Map.include({
 		// to adding or removing a layer.
 		if (oldZoomSpan !== this._getZoomSpan()) {
 			this.fire('zoomlevelschange');
+		}
+
+		if (this.options.maxZoom === undefined && this._layersMaxZoom && this.getZoom() > this._layersMaxZoom) {
+			this.setZoom(this._layersMaxZoom);
+		}
+		if (this.options.minZoom === undefined && this._layersMinZoom && this.getZoom() < this._layersMinZoom) {
+			this.setZoom(this._layersMinZoom);
 		}
 	}
 });

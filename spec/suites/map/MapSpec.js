@@ -69,6 +69,19 @@ describe("Map", function () {
 
 			expect(spy.called).to.not.be.ok();
 		});
+
+		it("throws error if container is reused by other instance", function () {
+			var container = document.createElement('div'),
+			    map = L.map(container),
+			    map2;
+
+			map.remove();
+			map2 = L.map(container);
+
+			expect(function () {
+				map.remove();
+			}).to.throwException();
+		});
 	});
 
 	describe('#getCenter', function () {
@@ -187,6 +200,25 @@ describe("Map", function () {
 			map.options.zoomSnap = 0;
 			expect(map.getBoundsZoom(bounds, false, padding)).to.be.within(19.6864560, 19.6864561);
 		});
+
+		it("getBoundsZoom does not return Infinity when projected SE - NW has negative components", function () {
+			var container = map.getContainer();
+			container.style.height = 369;
+			container.style.width = 1048;
+			document.body.appendChild(container);
+			var bounds = L.latLngBounds(L.latLng([62.18475569507688, 6.926335173954951]), L.latLng([62.140483526511694, 6.923933370740089]));
+
+			// The following coordinates are bounds projected with proj4leaflet crs = EPSG:25833', '+proj=utm +zone=33 +ellps=GRS80 +units=m +no_defs
+			var projectedSE = L.point(7800503.059925064, 6440062.353052008);
+			var projectedNW = L.point(7801987.203481699, 6425186.447901004);
+			var crsMock = sinon.mock(map.options.crs);
+			crsMock.expects("project").withArgs(bounds.getNorthWest()).returns(projectedNW);
+			crsMock.expects("project").withArgs(bounds.getSouthEast()).returns(projectedSE);
+
+			var padding = L.point(-50, -50);
+			map.setZoom(16);
+			expect(map.getBoundsZoom(bounds, false, padding)).to.eql(9);
+		});
 	});
 
 	describe('#setMaxBounds', function () {
@@ -267,6 +299,34 @@ describe("Map", function () {
 
 			expect(map.getMinZoom()).to.be(2);
 			expect(map.getMaxZoom()).to.be(20);
+		});
+
+		it("layer minZoom overrides map zoom if map has no minZoom set and layer minZoom is bigger than map zoom", function () {
+			var map = L.map(document.createElement("div"), {zoom: 10});
+			L.tileLayer("{z}{x}{y}", {minZoom: 15}).addTo(map);
+
+			expect(map.getMinZoom()).to.be(15);
+		});
+
+		it("layer maxZoom overrides map zoom if map has no maxZoom set and layer maxZoom is smaller than map zoom", function () {
+			var map = L.map(document.createElement("div"), {zoom: 20});
+			L.tileLayer("{z}{x}{y}", {maxZoom: 15}).addTo(map);
+
+			expect(map.getMaxZoom()).to.be(15);
+		});
+
+		it("map's zoom is adjusted to layer's minZoom even if initialized with smaller value", function () {
+			var map = L.map(document.createElement("div"), {zoom: 10});
+			L.tileLayer("{z}{x}{y}", {minZoom: 15}).addTo(map);
+
+			expect(map.getZoom()).to.be(15);
+		});
+
+		it("map's zoom is adjusted to layer's maxZoom even if initialized with larger value", function () {
+			var map = L.map(document.createElement("div"), {zoom: 20});
+			L.tileLayer("{z}{x}{y}", {maxZoom: 15}).addTo(map);
+
+			expect(map.getZoom()).to.be(15);
 		});
 	});
 
@@ -653,7 +713,7 @@ describe("Map", function () {
 			document.body.removeChild(div);
 		});
 
-		it.skipInPhantom('move to requested center and zoom, and call zoomend once', function (done) {
+		it('move to requested center and zoom, and call zoomend once', function (done) {
 			this.timeout(10000); // This test takes longer than usual due to frames
 
 			var spy = sinon.spy(),
@@ -670,7 +730,7 @@ describe("Map", function () {
 			map.on('zoomend', callback).flyTo(newCenter, newZoom);
 		});
 
-		it.skipInPhantom('flyTo start latlng == end latlng', function (done) {
+		it('flyTo start latlng == end latlng', function (done) {
 			this.timeout(10000); // This test takes longer than usual due to frames
 
 			var dc = new L.LatLng(38.91, -77.04);
@@ -1075,11 +1135,20 @@ describe("Map", function () {
 	});
 
 	describe('#getScaleZoom && #getZoomScale', function () {
-		it("convert zoom to scale and viceversa and return the same values", function () {
+		it("converts zoom to scale and vice versa and returns the same values", function () {
 			var toZoom = 6.25;
 			var fromZoom = 8.5;
-			var scale = map.getScaleZoom(toZoom, fromZoom);
-			expect(Math.round(map.getZoomScale(scale, fromZoom) * 100) / 100).to.eql(toZoom);
+			var scale = map.getZoomScale(toZoom, fromZoom);
+			expect(Math.round(map.getScaleZoom(scale, fromZoom) * 100) / 100).to.eql(toZoom);
+		});
+
+		it("converts scale to zoom and returns Infinity if map crs.zoom returns NaN", function () {
+			var stub = sinon.stub(map.options.crs, "zoom");
+			stub.returns(NaN);
+			var scale = 0.25;
+			var fromZoom = 8.5;
+			expect(map.getScaleZoom(scale, fromZoom)).to.eql(Infinity);
+			map.options.crs.zoom.restore();
 		});
 	});
 

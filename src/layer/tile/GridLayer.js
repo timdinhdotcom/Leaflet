@@ -89,10 +89,6 @@ L.GridLayer = L.Layer.extend({
 		// Tiles will not update more than once every `updateInterval` milliseconds when panning.
 		updateInterval: 200,
 
-		// @option attribution: String = null
-		// String to be shown in the attribution control, describes the layer data, e.g. "© Mapbox".
-		attribution: null,
-
 		// @option zIndex: Number = 1
 		// The explicit zIndex of the tile layer.
 		zIndex: 1,
@@ -111,7 +107,10 @@ L.GridLayer = L.Layer.extend({
 
 		// @option noWrap: Boolean = false
 		// Whether the layer is wrapped around the antimeridian. If `true`, the
-		// GridLayer will only be displayed once at low zoom levels.
+		// GridLayer will only be displayed once at low zoom levels. Has no
+		// effect when the [map CRS](#map-crs) doesn't wrap around. Can be used
+		// in combination with [`bounds`](#gridlayer-bounds) to prevent requesting
+		// tiles outside the CRS limits.
 		noWrap: false,
 
 		// @option pane: String = 'tilePane'
@@ -128,7 +127,7 @@ L.GridLayer = L.Layer.extend({
 	},
 
 	initialize: function (options) {
-		options = L.setOptions(this, options);
+		L.setOptions(this, options);
 	},
 
 	onAdd: function () {
@@ -173,13 +172,7 @@ L.GridLayer = L.Layer.extend({
 		return this;
 	},
 
-	// @method getAttribution: String
-	// Used by the `attribution control`, returns the [attribution option](#gridlayer-attribution).
-	getAttribution: function () {
-		return this.options.attribution;
-	},
-
-	// @method getContainer: String
+	// @method getContainer: HTMLElement
 	// Returns the HTML element that contains the tiles for this layer.
 	getContainer: function () {
 		return this._container;
@@ -574,7 +567,7 @@ L.GridLayer = L.Layer.extend({
 	_onMoveEnd: function () {
 		if (!this._map || this._map._animatingZoom) { return; }
 
-		this._resetView();
+		this._update();
 	},
 
 	_getTiledPixelBounds: function (center) {
@@ -638,7 +631,7 @@ L.GridLayer = L.Layer.extend({
 		});
 
 		if (queue.length !== 0) {
-			// if its the first batch of tiles to load
+			// if it's the first batch of tiles to load
 			if (!this._loading) {
 				this._loading = true;
 				// @event loading: Event
@@ -687,8 +680,13 @@ L.GridLayer = L.Layer.extend({
 		    nwPoint = coords.scaleBy(tileSize),
 		    sePoint = nwPoint.add(tileSize),
 
-		    nw = map.wrapLatLng(map.unproject(nwPoint, coords.z)),
-		    se = map.wrapLatLng(map.unproject(sePoint, coords.z));
+		    nw = map.unproject(nwPoint, coords.z),
+		    se = map.unproject(sePoint, coords.z);
+
+		if (!this.options.noWrap) {
+			nw = map.wrapLatLng(nw);
+			se = map.wrapLatLng(se);
+		}
 
 		return new L.LatLngBounds(nw, se);
 	},
@@ -805,14 +803,16 @@ L.GridLayer = L.Layer.extend({
 			this._pruneTiles();
 		}
 
-		L.DomUtil.addClass(tile.el, 'leaflet-tile-loaded');
+		if (!err) {
+			L.DomUtil.addClass(tile.el, 'leaflet-tile-loaded');
 
-		// @event tileload: TileEvent
-		// Fired when a tile loads.
-		this.fire('tileload', {
-			tile: tile.el,
-			coords: coords
-		});
+			// @event tileload: TileEvent
+			// Fired when a tile loads.
+			this.fire('tileload', {
+				tile: tile.el,
+				coords: coords
+			});
+		}
 
 		if (this._noTilesToLoad()) {
 			this._loading = false;

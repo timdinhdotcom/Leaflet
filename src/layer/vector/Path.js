@@ -82,14 +82,6 @@ L.Path = L.Layer.extend({
 		this._renderer._removePath(this);
 	},
 
-	getEvents: function () {
-		return {
-			zoomend: this._project,
-			moveend: this._update,
-			viewreset: this._reset
-		};
-	},
-
 	// @method redraw(): this
 	// Redraws the layer. Sometimes useful after you changed the coordinates that the path uses.
 	redraw: function () {

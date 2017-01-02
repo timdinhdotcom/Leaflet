@@ -62,13 +62,13 @@ L.Control.Zoom = L.Control.extend({
 	},
 
 	_zoomIn: function (e) {
-		if (!this._disabled) {
+		if (!this._disabled && this._map._zoom < this._map.getMaxZoom()) {
 			this._map.zoomIn(this._map.options.zoomDelta * (e.shiftKey ? 3 : 1));
 		}
 	},
 
 	_zoomOut: function (e) {
-		if (!this._disabled) {
+		if (!this._disabled && this._map._zoom > this._map.getMinZoom()) {
 			this._map.zoomOut(this._map.options.zoomDelta * (e.shiftKey ? 3 : 1));
 		}
 	},
@@ -78,6 +78,12 @@ L.Control.Zoom = L.Control.extend({
 		link.innerHTML = html;
 		link.href = '#';
 		link.title = title;
+
+		/*
+		 * Will force screen readers like VoiceOver to read this as "Zoom in - button"
+		 */
+		link.setAttribute('role', 'button');
+		link.setAttribute('aria-label', title);
 
 		L.DomEvent
 		    .on(link, 'mousedown dblclick', L.DomEvent.stopPropagation)

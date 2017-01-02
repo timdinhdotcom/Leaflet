@@ -20,7 +20,7 @@
  *
  * ```js
  * var map = L.map('map', {
- * 	renderer: L.svg();
+ * 	renderer: L.svg()
  * });
  * ```
  *
@@ -78,6 +78,8 @@ L.SVG = L.Renderer.extend({
 		// movement: update container viewBox so that we don't have to change coordinates of individual layers
 		L.DomUtil.setPosition(container, b.min);
 		container.setAttribute('viewBox', [b.min.x, b.min.y, size.x, size.y].join(' '));
+
+		this.fire('update');
 	},
 
 	// methods below are called by vector layers implementations
@@ -97,6 +99,7 @@ L.SVG = L.Renderer.extend({
 		}
 
 		this._updateStyle(layer);
+		this._layers[L.stamp(layer)] = layer;
 	},
 
 	_addPath: function (layer) {
@@ -107,6 +110,7 @@ L.SVG = L.Renderer.extend({
 	_removePath: function (layer) {
 		L.DomUtil.remove(layer._path);
 		layer.removeInteractiveTarget(layer._path);
+		delete this._layers[L.stamp(layer)];
 	},
 
 	_updatePath: function (layer) {

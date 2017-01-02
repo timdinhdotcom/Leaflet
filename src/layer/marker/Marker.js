@@ -17,7 +17,7 @@ L.Marker = L.Layer.extend({
 	// @aka Marker options
 	options: {
 		// @option icon: Icon = *
-		// Icon class to use for rendering the marker. See [Icon documentation](#L.Icon) for details on how to customize the marker icon. Set to new `L.Icon.Default()` by default.
+		// Icon class to use for rendering the marker. See [Icon documentation](#L.Icon) for details on how to customize the marker icon. If not specified, a new `L.Icon.Default` is used.
 		icon: new L.Icon.Default(),
 
 		// Option inherited from "Interactive layer" abstract class
@@ -76,14 +76,22 @@ L.Marker = L.Layer.extend({
 	onAdd: function (map) {
 		this._zoomAnimated = this._zoomAnimated && map.options.markerZoomAnimation;
 
+		if (this._zoomAnimated) {
+			map.on('zoomanim', this._animateZoom, this);
+		}
+
 		this._initIcon();
 		this.update();
 	},
 
-	onRemove: function () {
+	onRemove: function (map) {
 		if (this.dragging && this.dragging.enabled()) {
 			this.options.draggable = true;
 			this.dragging.removeHooks();
+		}
+
+		if (this._zoomAnimated) {
+			map.off('zoomanim', this._animateZoom, this);
 		}
 
 		this._removeIcon();
@@ -91,16 +99,10 @@ L.Marker = L.Layer.extend({
 	},
 
 	getEvents: function () {
-		var events = {
+		return {
 			zoom: this.update,
 			viewreset: this.update
 		};
-
-		if (this._zoomAnimated) {
-			events.zoomanim = this._animateZoom;
-		}
-
-		return events;
 	},
 
 	// @method getLatLng: LatLng
@@ -318,6 +320,14 @@ L.Marker = L.Layer.extend({
 
 	_resetZIndex: function () {
 		this._updateZIndex(0);
+	},
+
+	_getPopupAnchor: function () {
+		return this.options.icon.options.popupAnchor || [0, 0];
+	},
+
+	_getTooltipAnchor: function () {
+		return this.options.icon.options.tooltipAnchor || [0, 0];
 	}
 });
 
